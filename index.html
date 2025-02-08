@@ -9,9 +9,10 @@
         /* 保持之前的基础样式 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            padding: 20px;
+            padding: 0px;
             background-color: #ffffff;
             color: #24292f;
+            padding-top: 16px;
         }
         .container {
             max-width: 1000px;
@@ -31,7 +32,7 @@
             appearance: none;
             -webkit-appearance: none;
             padding: 5px 12px;
-            font-size: 14px;
+            font-size: 12px;
             line-height: 20px;
             color: #24292f;
             background-color: #f6f8fa;
@@ -140,15 +141,14 @@
 </head>
 <body>
 <div class="container">
-    <h2>年度提交统计</h2>
-    <div class="controls">
+    <!-- <div class="controls">
         <select id="categorySelect">
             <option value="all">全部类别</option>
             <option value="reading">阅读</option>
             <option value="diary">日记</option>
             <option value="study">学习</option>
         </select>
-    </div>
+    </div> -->
     <div class="month-labels" id="monthLabels"></div>
     <div class="calendar" id="contributions"></div>
     <div class="tooltip" id="tooltip"></div>
@@ -256,7 +256,10 @@
                 if (category === 'all') {
                     tooltipText += `总提交次数: ${commitData ? commitData.commits : 0}`;
                     if (commitData && commitData.tags.length > 0) {
-                        const categories = commitData.tags.map(tag => categoryNames[tag]).join(", ");
+                        // 生成每个分类及其数量
+                        const categories = commitData.tags.map(tag => 
+                            `${categoryNames[tag]}${commitData.categories?.[tag] || 0}`
+                        ).join("、 ");
                         tooltipText += `\n分类: ${categories}`;
                     }
                 } else {
