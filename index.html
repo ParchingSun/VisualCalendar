@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>年度提交统计</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        /* 保持之前的基础样式 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            padding: 20px;
+            background-color: #ffffff;
+            color: #24292f;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        .controls {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding: 5px 12px;
+            font-size: 14px;
+            line-height: 20px;
+            color: #24292f;
+            background-color: #f6f8fa;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath fill='%23444d56' d='M6 8.825L2.827 5.65l.708-.708L6 7.404l2.465-2.462.708.708L6 8.825z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 32px;
+        }
+        select:hover {
+            background-color: #f3f4f6;
+        }
+        select:focus {
+            outline: none;
+            border-color: #0969da;
+            box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: 30px repeat(53, 16px);
+            gap: 3px;
+            padding: 20px 0 0 0;
+            align-items: start;
+            position: relative;
+        }
+        .week-label {
+            text-align: right;
+            font-size: 12px;
+            color: #57606a;
+            height: 16px;
+            line-height: 16px;
+            margin-right: 8px;
+        }
+        .month-label {
+            font-size: 12px;
+            color: #57606a;
+            text-align: left;
+            margin-bottom: -12px;
+        }
+        .month-labels {
+            display: flex;
+            margin-left: 34px;
+            gap: 62px;
+            margin-bottom: 0px;
+        }
+        /* 其他样式保持不变 */
+        .day {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.1s ease-in-out;
+        }
+        .day:hover {
+            border: 1px solid rgba(27, 31, 35, 0.15);
+        }
+        .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            position: absolute;
+        }
+        .dot-1 { bottom: 2px; right: 2px; }
+        .dot-2 { bottom: 2px; left: 2px; }
+        .dot-3 { top: 2px; right: 2px; }
+
+        .green-1 { background-color: #9be9a8; }
+        .green-2 { background-color: #40c463; }
+        .green-3 { background-color: #30a14e; }
+        .green-4 { background-color: #216e39; }
+        .no-commit { background-color: #ebedf0; }
+
+        .dot-reading { background-color: #79b8ff; }
+        .dot-diary { background-color: #f97583; }
+        .dot-study { background-color: #ffea7f; }
+
+        .tooltip {
+            position: absolute;
+            background: #24292f;
+            color: #ffffff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            display: none;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(27, 31, 35, 0.1);
+            white-space: pre-line;
+        }
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #24292f transparent transparent transparent;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>年度提交统计</h2>
+    <div class="controls">
+        <select id="categorySelect">
+            <option value="all">全部类别</option>
+            <option value="reading">阅读</option>
+            <option value="diary">日记</option>
+            <option value="study">学习</option>
+        </select>
+    </div>
+    <div class="month-labels" id="monthLabels"></div>
+    <div class="calendar" id="contributions"></div>
+    <div class="tooltip" id="tooltip"></div>
+</div>
+
+<script>
+    const data = {
+        "2025-01-05": { commits: 2, categories: { reading: 2 }, tags: ["reading"] },
+        "2025-03-10": { commits: 5, categories: { diary: 3, study: 2 }, tags: ["diary", "study"] },
+        "2025-09-15": { commits: 7, categories: { reading: 7 }, tags: ["reading"] },
+        "2025-10-01": { commits: 10, categories: { diary: 10 }, tags: ["diary"] },
+        "2025-11-05": { commits: 3, categories: { study: 3 }, tags: ["study"] }
+    };
+
+    const startDate = new Date("2025-01-01");
+    const daysInYear = 365;
+    const container = document.getElementById("contributions");
+    const tooltip = document.getElementById("tooltip");
+    const categorySelect = document.getElementById("categorySelect");
+    const monthLabelsContainer = document.getElementById("monthLabels");
+
+    // 生成月份标签
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    months.forEach(month => {
+        let monthLabel = document.createElement("div");
+        monthLabel.className = "month-label";
+        monthLabel.innerText = month;
+        monthLabelsContainer.appendChild(monthLabel);
+    });
+
+    // 生成星期标签
+    const weekDays = ["Mon", "Wed", "Fri"];
+    weekDays.forEach((day, index) => {
+        let weekLabel = document.createElement("div");
+        weekLabel.className = "week-label";
+        weekLabel.innerText = day;
+        weekLabel.style.gridRow = (index * 2) + 2;
+        container.appendChild(weekLabel);
+    });
+
+    function getGreenClass(count) {
+        if (count >= 10) return "green-4";
+        if (count >= 6) return "green-3";
+        if (count >= 3) return "green-2";
+        if (count >= 1) return "green-1";
+        return "no-commit";
+    }
+
+    const categoryNames = {
+        'reading': '阅读',
+        'diary': '日记',
+        'study': '学习'
+    };
+
+    function updateCalendar(category = 'all') {
+        // 清除现有的天数方块
+        const days = container.querySelectorAll('.day');
+        days.forEach(day => day.remove());
+
+        // 重新生成日期方块
+        for (let i = 0; i < daysInYear; i++) {
+            let date = new Date(startDate);
+            date.setDate(startDate.getDate() + i);
+            let dateString = date.toISOString().split('T')[0];
+            let commitData = data[dateString];
+
+            let div = document.createElement("div");
+            div.className = "day";
+
+            if (category === 'all') {
+                // 显示总体提交量和类别点
+                div.className += " " + (commitData ? getGreenClass(commitData.commits) : "no-commit");
+                if (commitData && commitData.tags) {
+                    commitData.tags.forEach((tag, index) => {
+                        let dot = document.createElement("div");
+                        dot.className = `dot dot-${index + 1} dot-${tag}`;
+                        div.appendChild(dot);
+                    });
+                }
+            } else {
+                // 只显示特定类别的提交量
+                let categoryCommits = commitData?.categories?.[category] || 0;
+                div.className += " " + getGreenClass(categoryCommits);
+            }
+
+            // 设置网格位置
+            let startOffset = 2;  // 2025年1月1日是周三，所以需要空出前两格（周一、周二）
+            let weekNum = Math.floor((i + startOffset) / 7);
+            let dayOfWeek = (i + startOffset) % 7;
+            div.style.gridColumn = weekNum + 2;
+            div.style.gridRow = dayOfWeek + 2;
+
+
+            // 悬停提示
+            div.addEventListener("mouseenter", (e) => {
+                const dateObj = new Date(dateString);
+                const formattedDate = dateObj.toLocaleDateString('zh-CN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    weekday: 'long'
+                });
+                
+                let tooltipText = `${formattedDate}\n`;
+                if (category === 'all') {
+                    tooltipText += `总提交次数: ${commitData ? commitData.commits : 0}`;
+                    if (commitData && commitData.tags.length > 0) {
+                        const categories = commitData.tags.map(tag => categoryNames[tag]).join(", ");
+                        tooltipText += `\n分类: ${categories}`;
+                    }
+                } else {
+                    tooltipText += `${categoryNames[category]}次数: ${commitData?.categories?.[category] || 0}`;
+                }
+                tooltip.innerText = tooltipText;
+                tooltip.style.display = "block";
+                
+                const rect = div.getBoundingClientRect();
+                tooltip.style.left = `${rect.left - (tooltip.offsetWidth / 2) + (rect.width / 2)}px`;
+                tooltip.style.top = `${rect.top - tooltip.offsetHeight - 10}px`;
+            });
+
+            div.addEventListener("mouseleave", () => {
+                tooltip.style.display = "none";
+            });
+
+            container.appendChild(div);
+        }
+    }
+
+    // 初始化日历
+    updateCalendar('all');
+
+    // 监听类别选择变化
+    categorySelect.addEventListener('change', (e) => {
+        updateCalendar(e.target.value);
+    });
+</script>
+
+</body>
+</html>
